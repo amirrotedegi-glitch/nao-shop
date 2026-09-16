@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>سبد خرید | نُوآ</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+  <nav>
+    <a href="index.html">خانه</a>
+    <a href="index.html#products">محصولات</a>
+  </nav>
+  <div class="header-actions" id="authArea"></div>
+  <a href="cart.html" class="cart-btn">🛍 سبد <span class="cart-count" id="cartCount">۰</span></a>
+</header>
+
+<div class="container">
+  <h1 class="page-title">سبد <span class="accent">خرید</span></h1>
+  <p class="page-subtitle">محصولات انتخابی شما</p>
+  <div id="cartContent"></div>
+</div>
+
+<footer>
+  <div class="logo">نُوآ</div>
+  <p style="margin-top:0.5rem;">تمام حقوق محفوظ است ۱۴۰۴</p>
+</footer>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw new Error('auth');
+
+  async function loadCart() {
+    const el = document.getElementById('cartContent');
+    try {
+      const items = await api('/cart');
+      if (!items.length) {
+        el.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🛍</div>
+            <p>سبد خرید شما خالی است</p>
+            <a href="index.html" class="btn btn-primary" style="margin-top:1.5rem;">شروع خرید</a>
+          </div>
+        `;
+        return;
+      }
+
+      const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+      el.innerHTML = `
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:2rem;align-items:start;" class="cart-layout">
+          <div>
+            ${items.map(i => `
+              <div class="cart-item">
+                <div class="thumb">${i.emoji}</div>
+                <div>
+                  <h3 style="font-size:1rem;">${i.name}</h3>
+                  <div style="color:var(--gold);font-weight:700;margin-top:0.3rem;">${formatPrice(i.price)} تومان</div>
+                </div>
+                <div class="qty-controls">
+                  <button class="qty-btn" onclick="updateQty(${i.id}, ${i.quantity - 1})">−</button>
+                  <span style="min-width:30px;text-align:center;font-weight:700;">${toPersian(i.quantity)}</span>
+                  <button class="qty-btn" onclick="updateQty(${i.id}, ${i.quantity + 1})">+</button>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="removeItem(${i.id})">حذف</button>
+              </div>
+            `).join('')}
+          </div>
+          <div class="card">
+            <h3 style="margin-bottom:1rem;">خلاصه سفارش</h3>
+            <div class="summary-row"><span>تعداد اقلام</span><span>${toPersian(items.reduce((s,i)=>s+i.quantity,0))}</span></div>
+            <div class="summary-row total"><span>مجموع</span><span>${formatPrice(total)} تومان</span></div>
+            <a href="checkout.html" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:1.5rem;">ادامه و پرداخت ←</a>
+          </div>
+        </div>
+        <style>@media(max-width:768px){.cart-layout{grid-template-columns:1fr!important;}}</style>
+      `;
+    } catch (e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+  }
+
+  async function updateQty(id, qty) {
+    try {
+      await api('/cart/' + id, { method: 'PUT', body: JSON.stringify({ quantity: qty }) });
+      loadCart();
+      renderHeader();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function removeItem(id) {
+    try {
+      await api('/cart/' + id, { method: 'DELETE' });
+      toast('حذف شد');
+      loadCart();
+      renderHeader();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  loadCart();
+</script>
+</body>
+</html>

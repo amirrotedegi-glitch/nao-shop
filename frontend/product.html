@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>جزئیات محصول | نُوآ</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+  <nav>
+    <a href="index.html">خانه</a>
+    <a href="index.html#products">محصولات</a>
+  </nav>
+  <div class="header-actions" id="authArea"></div>
+  <a href="cart.html" class="cart-btn">🛍 سبد <span class="cart-count" id="cartCount">۰</span></a>
+</header>
+
+<div class="container" id="productDetail">
+  <p style="color:var(--muted)">در حال بارگذاری...</p>
+</div>
+
+<footer>
+  <div class="logo">نُوآ</div>
+  <p style="margin-top:0.5rem;">تمام حقوق محفوظ است ۱۴۰۴</p>
+</footer>
+
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  let quantity = 1;
+
+  async function loadProduct() {
+    try {
+      const p = await api('/products/' + id);
+      const el = document.getElementById('productDetail');
+      el.innerHTML = `
+        <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:0.9rem;">← بازگشت به فروشگاه</a>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;margin-top:1.5rem;align-items:start;" class="detail-grid">
+          <div class="card" style="padding:2rem;">
+            <div style="height:380px;border-radius:16px;background:linear-gradient(135deg,#2A2520,#1A1815);display:flex;align-items:center;justify-content:center;font-size:8rem;">${p.emoji}</div>
+          </div>
+          <div>
+            <span style="color:var(--gold);font-size:0.85rem;font-weight:600;">${p.category}</span>
+            <h1 class="page-title" style="margin:0.5rem 0 1rem;">${p.name}</h1>
+            <p style="color:var(--muted);line-height:2;margin-bottom:1.5rem;">${p.description || 'توضیحات این محصول به‌زودی اضافه می‌شود.'}</p>
+
+            <div style="display:flex;align-items:baseline;gap:1rem;margin-bottom:1.5rem;">
+              ${p.old_price ? `<span style="color:var(--muted);text-decoration:line-through;font-size:1rem;">${formatPrice(p.old_price)}</span>` : ''}
+              <span style="color:var(--gold);font-size:2rem;font-weight:800;">${formatPrice(p.price)} تومان</span>
+            </div>
+
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1.5rem;color:var(--muted);font-size:0.9rem;">
+              <span>موجودی: ${toPersian(p.stock)} عدد</span>
+              ${p.stock < 5 ? '<span class="status pending">کم</span>' : ''}
+            </div>
+
+            <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem;">
+              <span style="color:var(--muted);">تعداد:</span>
+              <div class="qty-controls">
+                <button class="qty-btn" onclick="changeQty(-1)">−</button>
+                <span id="qty" style="min-width:30px;text-align:center;font-weight:700;">${toPersian(quantity)}</span>
+                <button class="qty-btn" onclick="changeQty(1)">+</button>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="addCurrentToCart()">افزودن به سبد خرید 🛍</button>
+              <button class="btn btn-outline" onclick="addCurrentToCart(true)">خرید سریع</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // موبایل
+      const style = document.createElement('style');
+      style.textContent = '@media(max-width:768px){ .detail-grid{grid-template-columns:1fr!important;gap:1.5rem!important;} }';
+      document.head.appendChild(style);
+    } catch (e) {
+      document.getElementById('productDetail').innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+    }
+  }
+
+  function changeQty(delta) {
+    quantity = Math.max(1, quantity + delta);
+    document.getElementById('qty').textContent = toPersian(quantity);
+  }
+
+  async function addCurrentToCart(fast) {
+    if (!getToken()) {
+      toast('ابتدا وارد شوید', 'error');
+      setTimeout(() => location.href = 'login.html', 800);
+      return;
+    }
+    try {
+      await api('/cart', { method: 'POST', body: JSON.stringify({ product_id: id, quantity }) });
+      toast('به سبد اضافه شد ✓');
+      renderHeader();
+      if (fast) setTimeout(() => location.href = 'cart.html', 600);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  if (!id) location.href = 'index.html';
+  else loadProduct();
+</script>
+</body>
+</html>

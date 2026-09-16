@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>نُوآ | فروشگاه مدرن</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+  <nav>
+    <a href="index.html" class="active">خانه</a>
+    <a href="index.html#products">محصولات</a>
+    <a href="#">درباره ما</a>
+    <a href="#">تماس</a>
+  </nav>
+  <div class="header-actions" id="authArea"></div>
+  <a href="cart.html" class="cart-btn">🛍 سبد <span class="cart-count" id="cartCount">۰</span></a>
+</header>
+
+<section class="hero">
+  <div>
+    <div class="badge">مجموعه جدید ۱۴۰۴ منتشر شد</div>
+    <h1>سادگی، <span class="accent">لوکس</span><br />در هر جزئیات</h1>
+    <p>ما با دقت، محصولاتی رو انتخاب می‌کنیم که حس خوب رو به زندگی روزمره‌ت اضافه کنن. طراحی مینیمال، جنس باکیفیت، و قیمتی منصفانه.</p>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <a href="#products" class="btn btn-primary">مشاهده محصولات ←</a>
+      <a href="#" class="btn btn-outline">داستان ما</a>
+    </div>
+  </div>
+  <div id="featuredCard"></div>
+</section>
+
+<section class="container" id="products">
+  <h2 class="page-title">محصولات <span class="accent">منتخب</span></h2>
+  <p class="page-subtitle">دست‌چین شده با وسواس، برای تو</p>
+
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-cat="همه">همه</button>
+    <button class="filter-btn" data-cat="دکور">دکور</button>
+    <button class="filter-btn" data-cat="عطر">عطر</button>
+    <button class="filter-btn" data-cat="هدیه">هدیه</button>
+  </div>
+
+  <div style="margin-bottom:1rem;">
+    <input type="text" class="form-input" id="searchInput" placeholder="🔍 جستجوی محصول..." />
+  </div>
+
+  <div class="products-grid" id="productsGrid"></div>
+</section>
+
+<footer>
+  <div class="logo">نُوآ</div>
+  <p style="margin-top:0.5rem;">ساخته شده با ☕ و علاقه — تمام حقوق محفوظ است ۱۴۰۴</p>
+</footer>
+
+<script src="app.js"></script>
+<script>
+  let currentCat = 'همه';
+  let currentSearch = '';
+
+  async function loadFeatured() {
+    try {
+      const products = await api('/products?featured=true');
+      if (!products.length) return;
+      const p = products[0];
+      const el = document.getElementById('featuredCard');
+      el.innerHTML = `
+        <div class="product-card" style="padding:1.5rem;">
+          <div style="position:relative;">
+            <span style="position:absolute;top:1rem;right:1rem;background:var(--gold);color:var(--bg);padding:0.3rem 0.8rem;border-radius:100px;font-size:0.75rem;font-weight:700;z-index:2;">پرفروش</span>
+            <div class="thumb" style="height:280px;font-size:5rem;">${p.emoji}</div>
+          </div>
+          <h3 style="font-size:1.2rem;">${p.name}</h3>
+          <div class="cat">${p.description || ''}</div>
+          <div class="row" style="margin-top:1rem;">
+            <div>
+              ${p.old_price ? `<span class="old-price">${formatPrice(p.old_price)}</span>` : ''}
+              <span class="price">${formatPrice(p.price)} تومان</span>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addToCart(${p.id}, event)">افزودن به سبد</button>
+          </div>
+        </div>
+      `;
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadProducts() {
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = '<p style="color:var(--muted);">در حال بارگذاری...</p>';
+    try {
+      const params = new URLSearchParams();
+      if (currentCat !== 'همه') params.set('category', currentCat);
+      if (currentSearch) params.set('search', currentSearch);
+      const products = await api('/products?' + params.toString());
+
+      if (!products.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🔍</div><p>محصولی یافت نشد</p></div>`;
+        return;
+      }
+
+      grid.innerHTML = products.map(p => `
+        <a href="product.html?id=${p.id}" class="product-card">
+          <div class="thumb">${p.emoji}</div>
+          <h3>${p.name}</h3>
+          <div class="cat">${p.category} ${p.stock < 5 ? `• فقط ${toPersian(p.stock)} عدد` : ''}</div>
+          <div class="row">
+            <div>
+              ${p.old_price ? `<span class="old-price">${formatPrice(p.old_price)}</span>` : ''}
+              <span class="price">${formatPrice(p.price)}</span>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addToCart(${p.id}, event)">+</button>
+          </div>
+        </a>
+      `).join('');
+    } catch (e) {
+      grid.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+    }
+  }
+
+  async function addToCart(id, e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (!getToken()) {
+      toast('برای افزودن به سبد ابتدا وارد شوید', 'error');
+      setTimeout(() => location.href = 'login.html', 900);
+      return;
+    }
+    try {
+      await api('/cart', { method: 'POST', body: JSON.stringify({ product_id: id, quantity: 1 }) });
+      toast('به سبد اضافه شد ✓');
+      renderHeader();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCat = btn.dataset.cat;
+      loadProducts();
+    });
+  });
+
+  let searchTimer;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      currentSearch = e.target.value.trim();
+      loadProducts();
+    }, 350);
+  });
+
+  loadFeatured();
+  loadProducts();
+</script>
+</body>
+</html>

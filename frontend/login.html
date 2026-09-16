@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ورود | نُوآ</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+</header>
+
+<div class="container" style="max-width:460px;">
+  <h1 class="page-title" style="text-align:center;">ورود به <span class="accent">نُوآ</span></h1>
+  <p class="page-subtitle" style="text-align:center;">خوش آمدید</p>
+
+  <div class="card">
+    <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;background:var(--card-hover);padding:0.4rem;border-radius:100px;">
+      <button class="btn btn-primary btn-sm" id="tabLogin" style="flex:1;justify-content:center;" onclick="switchTab('login')">ورود</button>
+      <button class="btn btn-outline btn-sm" id="tabRegister" style="flex:1;justify-content:center;border:none;" onclick="switchTab('register')">ثبت‌نام</button>
+    </div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label>ایمیل</label>
+        <input class="form-input" type="email" name="email" required />
+      </div>
+      <div class="form-group">
+        <label>رمز عبور</label>
+        <input class="form-input" type="password" name="password" required />
+      </div>
+      <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;">ورود</button>
+    </form>
+
+    <form id="registerForm" style="display:none;">
+      <div class="form-group">
+        <label>نام</label>
+        <input class="form-input" name="name" required />
+      </div>
+      <div class="form-group">
+        <label>ایمیل</label>
+        <input class="form-input" type="email" name="email" required />
+      </div>
+      <div class="form-group">
+        <label>رمز عبور (حداقل ۶ کاراکتر)</label>
+        <input class="form-input" type="password" name="password" required minlength="6" />
+      </div>
+      <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;">ثبت‌نام</button>
+    </form>
+
+    <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--muted);text-align:center;">
+      ادمین آزمایشی: <b style="color:var(--gold);">admin@noa.com</b> / <b style="color:var(--gold);">admin123</b>
+    </div>
+  </div>
+</div>
+
+<footer><div class="logo">نُوآ</div></footer>
+
+<script src="app.js"></script>
+<script>
+  function switchTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
+    document.getElementById('tabLogin').className = isLogin ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    document.getElementById('tabLogin').style.border = isLogin ? 'none' : 'none';
+    document.getElementById('tabRegister').className = !isLogin ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    document.getElementById('tabRegister').style.border = 'none';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target));
+    try {
+      const res = await api('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+      setToken(res.token); setUser(res.user);
+      toast('خوش آمدید ' + res.user.name);
+      setTimeout(() => location.href = 'index.html', 700);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target));
+    try {
+      const res = await api('/auth/register', { method: 'POST', body: JSON.stringify(body) });
+      setToken(res.token); setUser(res.user);
+      toast('ثبت‌نام موفق ✓');
+      setTimeout(() => location.href = 'index.html', 700);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+</script>
+</body>
+</html>

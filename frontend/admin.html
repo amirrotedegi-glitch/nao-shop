@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>پنل ادمین | نُوآ</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+  <div class="header-actions" id="authArea"></div>
+  <a href="cart.html" class="cart-btn">🛍 سبد <span class="cart-count" id="cartCount">۰</span></a>
+</header>
+
+<div class="container">
+  <h1 class="page-title">پنل <span class="accent">ادمین</span></h1>
+  <p class="page-subtitle">مدیریت محصولات و سفارش‌ها</p>
+
+  <div style="display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap;">
+    <button class="btn btn-primary btn-sm" id="tabProductsBtn" onclick="switchAdminTab('products')">محصولات</button>
+    <button class="btn btn-outline btn-sm" id="tabOrdersBtn" onclick="switchAdminTab('orders')">سفارش‌ها</button>
+    <button class="btn btn-outline btn-sm" onclick="openProductModal()">➕ محصول جدید</button>
+  </div>
+
+  <div id="tabProducts">
+    <div class="card">
+      <table class="admin-table" id="productsTable"></table>
+    </div>
+  </div>
+
+  <div id="tabOrders" style="display:none;"></div>
+</div>
+
+<!-- مودال محصول -->
+<div id="productModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;">
+  <div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-bottom:1.5rem;" id="modalTitle">محصول جدید</h3>
+    <form id="productForm">
+      <input type="hidden" name="id" />
+      <div class="form-group"><label>نام</label><input class="form-input" name="name" required /></div>
+      <div class="form-group"><label>توضیحات</label><textarea class="form-input" name="description"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group"><label>قیمت</label><input class="form-input" name="price" type="number" required /></div>
+        <div class="form-group"><label>قیمت قبلی</label><input class="form-input" name="old_price" type="number" /></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>دسته</label>
+          <select class="form-select" name="category">
+            <option>دکور</option><option>عطر</option><option>هدیه</option>
+          </select>
+        </div>
+        <div class="form-group"><label>ایموجی</label><input class="form-input" name="emoji" placeholder="🕯" /></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group"><label>موجودی</label><input class="form-input" name="stock" type="number" value="10" /></div>
+        <div class="form-group"><label>ویژه</label><select class="form-select" name="featured"><option value="0">خیر</option><option value="1">بله</option></select></div>
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+        <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center;">ذخیره</button>
+        <button class="btn btn-outline" type="button" onclick="closeProductModal()">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer><div class="logo">نُوآ</div></footer>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw new Error('auth');
+  const user = getUser();
+  if (user?.role !== 'admin') { toast('دسترسی ندارید', 'error'); setTimeout(() => location.href = 'index.html', 800); throw new Error(); }
+
+  const statusLabels = { paid: 'پرداخت شده', pending: 'در انتظار', cancelled: 'لغو شده' };
+
+  async function loadProducts() {
+    const table = document.getElementById('productsTable');
+    try {
+      const products = await api('/products');
+      table.innerHTML = `
+        <thead><tr><th>#</th><th>محصول</th><th>دسته</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
+        <tbody>
+          ${products.map(p => `
+            <tr>
+              <td>${toPersian(p.id)}</td>
+              <td>${p.emoji} ${p.name}</td>
+              <td>${p.category}</td>
+              <td style="color:var(--gold);">${formatPrice(p.price)}</td>
+              <td>${toPersian(p.stock)}</td>
+              <td>
+                <button class="btn btn-outline btn-sm" onclick='editProduct(${JSON.stringify(p)})'>ویرایش</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">حذف</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+    } catch (e) { table.innerHTML = `<tr><td>${e.message}</td></tr>`; }
+  }
+
+  async function loadOrders() {
+    const el = document.getElementById('tabOrders');
+    try {
+      const orders = await api('/admin/orders');
+      if (!orders.length) { el.innerHTML = '<div class="empty-state">سفارشی ثبت نشده</div>'; return; }
+      el.innerHTML = orders.map(o => `
+        <div class="card" style="margin-bottom:1rem;">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+              <div style="font-weight:700;">سفارش #${toPersian(o.id)} — ${o.user_name}</div>
+              <div style="color:var(--muted);font-size:0.85rem;">${o.user_email} • ${new Date(o.created_at).toLocaleDateString('fa-IR')}</div>
+              <div style="color:var(--muted);font-size:0.85rem;">📍 ${o.address} — ${toPersian(o.phone)}</div>
+            </div>
+            <div style="text-align:left;">
+              <span class="status ${o.status}">${statusLabels[o.status]}</span>
+              <div style="color:var(--gold);font-weight:800;margin-top:0.3rem;">${formatPrice(o.total)} تومان</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:0.8rem;margin-top:0.8rem;font-size:0.9rem;">
+            ${o.items.map(i => `<div>${i.emoji} ${i.name} × ${toPersian(i.quantity)}</div>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    } catch (e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+  }
+
+  function switchAdminTab(tab) {
+    document.getElementById('tabProducts').style.display = tab === 'products' ? 'block' : 'none';
+    document.getElementById('tabOrders').style.display = tab === 'orders' ? 'block' : 'none';
+    document.getElementById('tabProductsBtn').className = tab === 'products' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    document.getElementById('tabOrdersBtn').className = tab === 'orders' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    if (tab === 'orders') loadOrders();
+  }
+
+  function openProductModal(product = null) {
+    document.getElementById('productModal').style.display = 'flex';
+    document.getElementById('modalTitle').textContent = product ? 'ویرایش محصول' : 'محصول جدید';
+    const form = document.getElementById('productForm');
+    form.reset();
+    if (product) {
+      Object.keys(product).forEach(k => { if (form[k]) form[k].value = product[k]; });
+    }
+  }
+
+  function closeProductModal() {
+    document.getElementById('productModal').style.display = 'none';
+  }
+
+  function editProduct(p) { openProductModal(p); }
+
+  async function deleteProduct(id) {
+    if (!confirm('مطمئنی؟')) return;
+    try {
+      await api('/products/' + id, { method: 'DELETE' });
+      toast('حذف شد');
+      loadProducts();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target));
+    const id = body.id;
+    delete body.id;
+    body.price = Number(body.price);
+    body.old_price = body.old_price ? Number(body.old_price) : null;
+    body.stock = Number(body.stock);
+    body.featured = Number(body.featured);
+
+    try {
+      if (id) {
+        await api('/products/' + id, { method: 'PUT', body: JSON.stringify(body) });
+        toast('ویرایش شد');
+      } else {
+        await api('/products', { method: 'POST', body: JSON.stringify(body) });
+        toast('اضافه شد');
+      }
+      closeProductModal();
+      loadProducts();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  loadProducts();
+</script>
+</body>
+</html>

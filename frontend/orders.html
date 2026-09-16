@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>سفارش‌های من | نُوآ</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">نُوآ</a>
+  <div class="header-actions" id="authArea"></div>
+  <a href="cart.html" class="cart-btn">🛍 سبد <span class="cart-count" id="cartCount">۰</span></a>
+</header>
+
+<div class="container">
+  <h1 class="page-title">سفارش‌های <span class="accent">من</span></h1>
+  <p class="page-subtitle">تاریخچه خریدهای شما</p>
+  <div id="ordersList"></div>
+</div>
+
+<footer><div class="logo">نُوآ</div></footer>
+
+<script src="app.js"></script>
+<script>
+  if (!requireAuth()) throw new Error('auth');
+
+  const statusLabels = { paid: 'پرداخت شده', pending: 'در انتظار', cancelled: 'لغو شده' };
+
+  async function loadOrders() {
+    const el = document.getElementById('ordersList');
+    try {
+      const orders = await api('/orders');
+      if (!orders.length) {
+        el.innerHTML = `<div class="empty-state"><div class="icon">📦</div><p>هنوز سفارشی ثبت نکرده‌اید</p><a href="index.html" class="btn btn-primary" style="margin-top:1.5rem;">شروع خرید</a></div>`;
+        return;
+      }
+      el.innerHTML = orders.map(o => `
+        <div class="card" style="margin-bottom:1.5rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+            <div>
+              <div style="font-weight:700;">سفارش #${toPersian(o.id)}</div>
+              <div style="color:var(--muted);font-size:0.85rem;">${new Date(o.created_at).toLocaleDateString('fa-IR')}</div>
+            </div>
+            <div style="display:flex;gap:0.8rem;align-items:center;">
+              <span class="status ${o.status}">${statusLabels[o.status] || o.status}</span>
+              <span style="color:var(--gold);font-weight:800;">${formatPrice(o.total)} تومان</span>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:1rem;">
+            ${o.items.map(i => `
+              <div style="display:flex;justify-content:space-between;padding:0.4rem 0;font-size:0.9rem;">
+                <span>${i.emoji} ${i.name} × ${toPersian(i.quantity)}</span>
+                <span style="color:var(--muted);">${formatPrice(i.price * i.quantity)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div style="margin-top:1rem;color:var(--muted);font-size:0.85rem;">
+            📍 ${o.address} — 📞 ${toPersian(o.phone)}
+          </div>
+        </div>
+      `).join('');
+    } catch (e) { el.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`; }
+  }
+
+  loadOrders();
+</script>
+</body>
+</html>
